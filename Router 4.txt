@@ -1,0 +1,25 @@
+configure terminal
+
+! IPv6 Routing aktivieren (nötig für Routing & Gateway-Funktion)
+ipv6 unicast-routing
+
+! LAN-Interface zu Switch/Server (statische Adressen auf den Servern)
+interface GigabitEthernet0/0/0
+ ipv6 address 2001:DB8:4::1/64
+ no shutdown
+interface Serial0/1/0
+ ipv6 address fd00:0:0:34::4/64
+ no shutdown
+interface Serial0/2/0
+ ipv6 address fd00:0:0:14::4/64
+ no shutdown
+interface Serial0/2/1
+ ipv6 address fd00:0:0:24::4/64
+ no shutdown
+
+! Statische Routen für R4:
+! (Route zum eigenen LAN nicht nötig, da direkt verbunden)
+ipv6 route 2001:db8:1::/64 fd00:0:0:14::1
+ipv6 route 2001:db8:2::/64 fd00:0:0:24::2
+ipv6 route 2001:db8:3::/64 fd00:0:0:34::3
+end
