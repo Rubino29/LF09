@@ -1,0 +1,90 @@
+! ==========================================
+! Configuration for SW-HL-01 (Luebeck Switch)
+! ==========================================
+enable
+configure terminal
+
+! --- Basic Settings ---
+hostname SW-HL-01
+ip domain-name luebeck.de
+
+! --- Security: Passwords & Banner ---
+enable secret class
+
+username admin privilege 15 secret cisco
+
+banner motd #
+============================================================
+           WARNING: AUTHORIZED ACCESS ONLY!
+  All activities are logged. Unauthorized access is denied.
+============================================================
+#
+
+line console 0
+ password cisco
+ login
+exit
+
+! --- SSH Configuration ---
+crypto key generate rsa modulus 2048
+ip ssh version 2
+
+! SSH access control list: Only Hamburg clients allowed
+ipv6 access-list SSH_LIMIT
+ permit ipv6 2001:db8:10::/48 any
+exit
+
+line vty 0 15
+ login local
+ password cisco
+ transport input ssh
+ ipv6 access-class SSH_LIMIT in
+exit
+
+! --- VLAN Creation ---
+vlan 30
+ name Clients_VLAN30
+exit
+
+vlan 40
+ name Clients_VLAN40
+exit
+
+! --- Switch Virtual Interface (SVI) for Management ---
+ipv6 unicast-routing
+
+interface Vlan30
+ description Management Interface (VLAN 30)
+ ipv6 address 2001:db8:20:30::2/64
+ no shutdown
+exit
+
+! Default route to the local router (RT-HL-01) for management packets
+ipv6 route ::/0 2001:db8:20:30::1
+
+! --- Access Ports for Clients ---
+interface GigabitEthernet1/0/10
+ description Luebeck Client 3 (VLAN 30)
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+ no shutdown
+exit
+
+interface GigabitEthernet1/0/20
+ description Luebeck Client 4 (VLAN 40)
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ no shutdown
+exit
+
+! --- Trunk Port to Router RT-HL-01 ---
+interface GigabitEthernet1/0/1
+ description Link to RT-HL-01 (Trunk)
+ switchport mode trunk
+ no shutdown
+exit
+
+end
+write memory

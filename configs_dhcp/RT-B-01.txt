@@ -1,0 +1,110 @@
+! ==========================================
+! Configuration for RT-B-01 (Berlin Router)
+! ==========================================
+enable
+configure terminal
+
+! --- Basic Settings ---
+hostname RT-B-01
+ip domain-name berlin.de
+
+! --- Security: Passwords & Banner ---
+enable secret class
+
+username admin privilege 15 secret cisco
+
+banner motd #
+============================================================
+           WARNING: AUTHORIZED ACCESS ONLY!
+  All activities are logged. Unauthorized access is denied.
+============================================================
+#
+
+line console 0
+ password cisco
+ login
+exit
+
+! --- SSH Configuration ---
+crypto key generate rsa modulus 2048
+ip ssh version 2
+
+! SSH access control list: Only Hamburg clients allowed
+ipv6 access-list SSH_LIMIT
+ permit ipv6 2001:db8:10::/48 any
+exit
+
+line vty 0 15
+ login local
+ password cisco
+ transport input ssh
+ ipv6 access-class SSH_LIMIT in
+exit
+
+! --- Global IPv6 Routing ---
+ipv6 unicast-routing
+
+! --- DHCPv6 Pools (Stateful Mode for Server Auto-Configuration) ---
+ipv6 dhcp pool VLAN50_POOL
+ address prefix 2001:db8:30:50::/64
+ dns-server 2001:db8:30:50::10
+ domain-name berlin.de
+exit
+
+! --- LAN Interfaces (Router-on-a-Stick) ---
+interface GigabitEthernet0/0/0
+ no shutdown
+ description Trunk Link to SW-B-01
+exit
+
+interface GigabitEthernet0/0/0.50
+ description Berlin Server VLAN 50 (Stateful DHCPv6)
+ encapsulation dot1Q 50
+ ipv6 address 2001:db8:30:50::1/64
+ ipv6 nd managed-config-flag
+ ipv6 nd other-config-flag
+ ipv6 nd prefix 2001:db8:30:50::/64 no-autoconfig
+ ipv6 dhcp server VLAN50_POOL
+ no ipv6 redirects
+ ipv6 ospf 42 area 0
+exit
+
+! --- WAN Interfaces (Serial Link - Unique Local Addresses) ---
+! Link B <-> HH (DTE)
+interface Serial0/1/0
+ description Link to RT-HH-01 (Hamburg)
+ ipv6 address fd00:13::2/64
+ no ipv6 redirects
+ ipv6 ospf 42 area 0
+ no shutdown
+exit
+
+! Link B <-> HL (DTE)
+interface Serial0/1/1
+ description Link to RT-HL-01 (Luebeck)
+ ipv6 address fd00:23::2/64
+ no ipv6 redirects
+ ipv6 ospf 42 area 0
+ no shutdown
+exit
+
+! Link B <-> M (DCE)
+interface Serial0/2/0
+ description Link to RT-M-01 (Muenchen)
+ ipv6 address fd00:34::1/64
+ clock rate 128000
+ no ipv6 redirects
+ ipv6 ospf 42 area 0
+ no shutdown
+exit
+
+! --- Dynamic Routing: OSPFv3 Process 42 ---
+ipv6 router ospf 42
+ router-id 3.3.3.3
+ log-adjacency-changes
+ ! Security: Prevent routing packets on server VLAN
+ passive-interface GigabitEthernet0/0/0.50
+exit
+
+end
+write memory

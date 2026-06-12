@@ -1,0 +1,90 @@
+! ==========================================
+! Configuration for SW-HH-01 (Hamburg Switch)
+! ==========================================
+enable
+configure terminal
+
+! --- Basic Settings ---
+hostname SW-HH-01
+ip domain-name hamburg.de
+
+! --- Security: Passwords & Banner ---
+enable secret class
+
+username admin privilege 15 secret cisco
+
+banner motd #
+============================================================
+           WARNING: AUTHORIZED ACCESS ONLY!
+  All activities are logged. Unauthorized access is denied.
+============================================================
+#
+
+line console 0
+ password cisco
+ login
+exit
+
+! --- SSH Configuration ---
+crypto key generate rsa modulus 2048
+ip ssh version 2
+
+! SSH access control list: Only Hamburg clients allowed
+ipv6 access-list SSH_LIMIT
+ permit ipv6 2001:db8:10::/48 any
+exit
+
+line vty 0 15
+ login local
+ password cisco
+ transport input ssh
+ ipv6 access-class SSH_LIMIT in
+exit
+
+! --- VLAN Creation ---
+vlan 10
+ name Clients_VLAN10
+exit
+
+vlan 20
+ name Clients_VLAN20
+exit
+
+! --- Switch Virtual Interface (SVI) for Management ---
+ipv6 unicast-routing
+
+interface Vlan10
+ description Management Interface (VLAN 10)
+ ipv6 address 2001:db8:10:10::2/64
+ no shutdown
+exit
+
+! Default route to the local router (RT-HH-01) for management packets
+ipv6 route ::/0 2001:db8:10:10::1
+
+! --- Access Ports for Clients ---
+interface GigabitEthernet1/0/10
+ description Hamburg Client 1 (VLAN 10)
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ no shutdown
+exit
+
+interface GigabitEthernet1/0/20
+ description Hamburg Client 2 (VLAN 20)
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ no shutdown
+exit
+
+! --- Trunk Port to Router RT-HH-01 ---
+interface GigabitEthernet1/0/1
+ description Link to RT-HH-01 (Trunk)
+ switchport mode trunk
+ no shutdown
+exit
+
+end
+write memory
